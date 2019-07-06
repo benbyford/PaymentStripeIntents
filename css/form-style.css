@@ -1,0 +1,157 @@
+#stripe-intents-form {
+    background-color: #eee;
+    padding: 1em;
+}
+
+#stripe-intents-form * {
+    font-family: Roboto, Open Sans, Segoe UI, sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#stripe-intents-form fieldset {
+    margin: 0 15px 20px;
+    padding: 0;
+    border-style: none;
+    background-color: #7795f8;
+    box-shadow: 0 6px 9px rgba(50, 50, 93, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 #829fff;
+    border-radius: 4px;
+}
+
+#stripe-intents-form .row {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-left: 15px;
+}
+
+#stripe-intents-form .row + .row {
+    border-top: 1px solid #819efc;
+}
+
+#stripe-intents-form label {
+    width: 15%;
+    min-width: 70px;
+    padding: 11px 0;
+    color: #103749;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#stripe-intents-form input, 
+#stripe-intents-form button {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+    border-style: none;
+}
+
+#stripe-intents-form input:-webkit-autofill {
+    -webkit-text-fill-color: #fce883;
+    transition: background-color 100000000s;
+    -webkit-animation: 1ms void-animation-out;
+}
+
+#stripe-intents-form .StripeElement--webkit-autofill {
+    background: transparent !important;
+}
+
+#stripe-intents-form .StripeElement {
+    width: 100%;
+    padding: 11px 15px 11px 0;
+}
+
+#stripe-intents-form input {
+    width: 100%;
+    padding: 11px 15px 11px 0;
+    color: #0d78aa;
+    background-color: transparent;
+    -webkit-animation: 1ms void-animation-out;
+}
+#stripe-intents-form .InputElement.is-complete{
+    color: #0d78aa;
+}
+
+#stripe-intents-form input::-webkit-input-placeholder {
+color: #87bbfd;
+}
+
+#stripe-intents-form input::-moz-placeholder {
+color: #87bbfd;
+}
+
+#stripe-intents-form input:-ms-input-placeholder {
+color: #87bbfd;
+}
+
+#stripe-intents-form button {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    height: 40px;
+    margin: 1em 0 0;
+    background-color: #276988;
+    box-shadow: 0 6px 9px rgba(50, 50, 93, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08), 0 1px 0 #103749;
+    border-radius: 4px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+
+    transition: all 0.05s ease-out;
+}
+#stripe-intents-form button:hover {
+    background-color: #206f94;
+    box-shadow: 0 6px 10px rgba(50, 50, 93, 0.06), 0 2px 10px rgba(0, 0, 0, 0.08), 0 1px 0 #103749;
+    transform: translateY(-1px);
+}
+#stripe-intents-form button:active {
+    background-color: #2d8ab6;
+    box-shadow: 0 6px 9px rgba(50, 50, 93, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 #103749;
+    transform: translateY(1px);
+
+    transition: all 0s ease-out;
+}
+
+#stripe-intents-form .error svg .base {
+fill: #fff;
+}
+
+#stripe-intents-form .error svg .glyph {
+fill: #6772e5;
+}
+
+#stripe-intents-form .error .message {
+color: #fff;
+}
+
+#stripe-intents-form .success .icon .border {
+stroke: #87bbfd;
+}
+
+#stripe-intents-form .success .icon .checkmark {
+stroke: #fff;
+}
+
+#stripe-intents-form .success .title {
+color: #fff;
+}
+
+#stripe-intents-form .success .message {
+color: #9cdbff;
+}
+
+#stripe-intents-form .success .reset path {
+fill: #fff;
+}
+
+#stripe-intents-form .stripe-logo{
+    display: block;
+    clear: both;
+    margin-top: 0.5em;
+    text-align: right;
+}

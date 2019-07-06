@@ -1,0 +1,227 @@
+<?php
+
+require_once(__DIR__ . DIRECTORY_SEPARATOR . 'init.php');
+
+class PaymentStripeIntents extends PaymentModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'PaymentStripeIntents',
+			'version' => 001,
+			'summary' => 'PaymentStripeIntents',
+			'singular' => true,
+			'requires' => 'PaymentModule',
+		);
+    }
+    protected $name = "PaymentStripeIntents";
+
+	public function init() {
+		$this->currenct = $this->defaultCurrency;
+	}
+
+  	public function getTitle() {
+    	return $this->_("Credit Card (StripeIntents)");
+  	}
+
+
+    protected function createIntent($amount, $currency, $description = ""){
+
+        \Stripe\Stripe::setApiKey($this->secretKey);
+
+        $description = $description != "" ? $description : "Charge from " . $this->seller;
+
+        $capturePayment = "automatic";
+        if((int)$this->captureCheckbox){
+            $capturePayment = "manual";
+        }
+
+        $response = \Stripe\PaymentIntent::create([
+            "amount" => $amount,
+            "currency" => $currency,
+            "payment_method_types" => ["card"],
+            "capture_method" => $capturePayment,
+            "description" => $description
+            // "statement_descriptor" => $descriptor
+            // "receipt_email" => this might be known yet
+            // "customer" => $customerID
+            // "save_payment_method" => true
+        ]);
+
+        return $response;
+    }
+
+    public function paymentCheckout($amount = 0, $currency = "usd", $description)
+    {
+        // setup payment Intent
+        $intent = $this->createIntent($amount, $currency, $description);
+        
+        // save Intent in session
+        $this->saveIntent($amount, $curreny,$intent->id);
+
+        $returnUrl = $this->page->httpUrl;
+        if($this->returnUrl != ""){
+            $returnUrl = $this->returnUrl;
+        }
+        $ajax = 1;
+        if((int)$this->ajax){
+            $ajax = (int)$this->ajax;
+        }
+
+        $formIntent = '<div id="stripe-intents-form">
+                
+                <!-- Stripe cross browser payments button -->
+                <div id="payment-request-button"></div>
+                <form action="'. $returnUrl .'" method="post" data-ajax="'. $ajax .'" id="stripe-payment-form">
+                    
+                    <!-- Stripe elements form -->
+                    <label for="cardholder-name">Cardholder Name</label>
+                    <input id="cardholder-name" name="name" type="text" required>
+                    
+                    <label for="cardholder-name">Cardholder Email</label>
+                    <input id="cardholder-email" name="email" type="text" required>
+
+                    <label for="card-element">Credit or debit card</label>
+                    <div id="card-element"></div>
+
+                    <button id="card-button" data-public="'. $this->publicKey .'" data-secret="' . $intent->client_secret .'">Submit Payment</button>
+                </form>
+                <div id="card-errors" role="alert"></div>
+                <div class="stripe-logo">
+                    <a href="https://stripe.com" target="_blank" rel="nofollow"><img src="'.$this->config->urls->siteModules . $this->name . '/img/powered_by_stripe.svg"></a>
+                </div>
+            </div>';
+
+        return array( $formIntent, $intent->id );
+
+    }
+
+    // 
+    // save intent info in the session
+    //
+    protected function saveIntent($amount = 0, $curreny = "", $intentID = ""){  
+        $this->session->set("stripe-intent-amount",$amount);
+        $this->session->set("stripe-intent-curreny",$curreny);
+        $this->session->set("stripe-intent-intent-id", $intentID);
+    }
+
+
+    // 
+    // intent utilities
+    //
+    public function cancelIntent($intentID){
+        $intent = \Stripe\PaymentIntent::retrieve($intentID);
+        $intent->cancel();
+    }
+
+    public function retrieveIntent($intentID){
+        $intent = \Stripe\PaymentIntent::retrieve($intentID);
+    }
+
+    public function capturePaymentFromIntent($intentId){
+        // \Stripe\Stripe::setApiKey("sk_test_yKOOsZQrqwRDTEhy40frFtbF");
+        
+        $intent = retrieveIntent($intentId);
+        $intent->capture();
+    }
+
+    //
+    // CSS and Scripts for form styling and display
+    //
+    public function getScripts(){
+        $scripts = "<script defer>". $this->script_styling ."</script>";
+        $scripts .= "<script defer src='" . $this->config->urls->siteModules . $this->name . '/scripts/stripejs-init.js' . "'></script>";
+        return $scripts;
+    }
+
+    public function getCSS(){
+        $css = "<style>". file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . '/css/form-style.css', true) . "</style>";
+        return $css;
+    }
+
+
+	// render Stripe form
+	public function render() {
+
+	}
+
+
+	public static function getModuleConfigInputfields(array $data) {
+        
+        $inputfields = new InputfieldWrapper();
+
+	    $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'seller';
+	    $field->label = __("Seller name");
+	    $field->notes = __("Company or seller of the goods - this is shown on stripe payment form");
+        if(isset($data['seller'])) $field->value = $data['seller'];
+        $field->columnWidth = 50;
+	    $inputfields->add($field);
+
+	    $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'defaultCurrency';
+	    $field->label = __("Default currency");
+        $field->notes = __("Use this currency by default (always possible to overwrite when using this module from API) Find currency codes listed [here](https://www.iso.org/iso-4217-currency-codes.html)");
+        $field->columnWidth = 50;
+	    if(isset($data['defaultCurrency'])) $field->value = $data['defaultCurrency'];
+	    $inputfields->add($field);
+
+        $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'returnUrl';
+	    $field->label = __("Return Url");
+        $field->notes = __("Url the form will POST to on successful payment or card capture e.g. /cart/my-thank-you-page . Defaults to the same page.");
+        $field->columnWidth = 50;
+	    if(isset($data['returnUrl'])) $field->value = $data['returnUrl'];
+        $inputfields->add($field);
+
+
+	    $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'secretKey';
+	    $field->label = __("Secret key");
+        $field->notes = __("Your secret key: remember to change this to your live secret key in production. See your keys [here](https://dashboard.stripe.com/account)");
+        $field->columnWidth = 50;
+	    if(isset($data['secretKey'])) $field->value = $data['secretKey'];
+        $inputfields->add($field);
+        
+
+	    $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'publicKey';
+	    $field->label = __("Public key");
+        $field->notes = __("Your public key: remember to change this to your live public key in production. See your keys [here](https://dashboard.stripe.com/account)");
+        $field->columnWidth = 50;
+	    if(isset($data['publicKey'])) $field->value = $data['publicKey'];
+        $inputfields->add($field);
+
+
+	    $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'imageUrl';
+	    $field->label = __("Url to logo");
+        $field->notes = __("Company logo or other image to show in Stripe payment form. Relative url from root, like /site/templates/images/logo.gif");
+        $field->columnWidth = 50;
+	    if(isset($data['imageUrl'])) $field->value = $data['imageUrl'];
+	    $inputfields->add($field);
+
+		$field = wire('modules')->get('InputfieldCheckbox');
+	    $field->name = 'captureCheckbox';
+	    $field->label = __("Capture payment or defer - check to defer");
+        $field->notes = __("If unchecked (default) capture payment (payment taken immediately), if checked then defer payment (will have to be captured on Stripe account or via API)");
+        $field->columnWidth = 50;
+	    if(isset($data['captureCheckbox'])) {
+			$field->value = $data['captureCheckbox'];
+			$field->attr('checked', $data['captureCheckbox'] === 1 ? 'checked' : '' );
+		}
+        $inputfields->add($field);
+
+
+        $field = wire('modules')->get('InputfieldTextarea');
+	    $field->name = 'script_styling';
+	    $field->label = __("Form styling in JS");
+        $field->notes = __("Style your form using StripeJS Elements. 
+            e.g. `var style = { base: { color: '#32325d' } }`
+            More examples can be found [here](https://stripe.com/docs/stripe-js/reference#element-options)");
+	    if(isset($data['script_styling'])) $field->value = $data['script_styling'];
+	    $inputfields->add($field);
+        
+
+		return $inputfields;
+	}
+}
