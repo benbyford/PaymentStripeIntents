@@ -16,7 +16,7 @@ class PaymentStripeIntents extends PaymentModule {
     protected $name = "PaymentStripeIntents";
 
 	public function init() {
-		$this->currenct = $this->defaultCurrency;
+		$this->currency = $this->defaultCurrency;
 	}
 
   	public function getTitle() {
@@ -50,22 +50,38 @@ class PaymentStripeIntents extends PaymentModule {
         return $response;
     }
 
-    public function paymentCheckout($amount = 0, $currency = "usd", $description)
+    public function paymentCheckout($description = "", $custom_amount = 0, $custom_currency = "", $custom_returnUrl = "")
     {
+        // set defaults
+        $amount = $this->getTotalAmount();
+        $currency = $this->currency;
+        $ajax = 0;
+        $imageUrl = $this->config->urls->siteModules . $this->name . '/img/powered_by_stripe.svg';
+        
+        // set return address
+        $returnUrl = $this->page->httpUrl; //  default to current page address if none set in request or admin settings
+
+        $customerName = $this->customer->givenName;
+        if($this->customer->givenName && $this->customer->familyName){ $customerName = $this->customer->givenName . " " . $this->customer->familyName; }
+
+        // overwrite defaults if set
+        if( $custom_currency != "" ) $currency = $custom_currency;
+        if( $custom_amount != 0 ) $amount = $custom_amount;
+        if( (int)$this->ajax ){ $ajax = (int)$this->ajax; }
+        if( $this->returnUrl != "" ){ $returnUrl = $this->returnUrl; }
+        if( $custom_returnUrl != "" ){ $returnUrl = $custom_returnUrl; }
+        if( $this->imageUrl != "") { $imageUrl = $this->imageUrl; }
+
+
         // setup payment Intent
         $intent = $this->createIntent($amount, $currency, $description);
         
-        // save Intent in session
-        $this->saveIntent($amount, $curreny,$intent->id);
+        // throw error if no stripe intent id present
+        if(!$intent->id) throw new WireException("No Stripe Intent ID present");
 
-        $returnUrl = $this->page->httpUrl;
-        if($this->returnUrl != ""){
-            $returnUrl = $this->returnUrl;
-        }
-        $ajax = 1;
-        if((int)$this->ajax){
-            $ajax = (int)$this->ajax;
-        }
+        // save Intent in session
+        $this->saveIntentData($intent->id);
+        
 
         $formIntent = '<div id="stripe-intents-form">
                 
@@ -75,10 +91,10 @@ class PaymentStripeIntents extends PaymentModule {
                     
                     <!-- Stripe elements form -->
                     <label for="cardholder-name">Cardholder Name</label>
-                    <input id="cardholder-name" name="name" type="text" required>
+                    <input id="cardholder-name" name="name" type="text" required value="'. $customerName .'">
                     
                     <label for="cardholder-name">Cardholder Email</label>
-                    <input id="cardholder-email" name="email" type="text" required>
+                    <input id="cardholder-email" name="email" type="text" required value="'. $this->customer->email .'">
 
                     <label for="card-element">Credit or debit card</label>
                     <div id="card-element"></div>
@@ -87,21 +103,32 @@ class PaymentStripeIntents extends PaymentModule {
                 </form>
                 <div id="card-errors" role="alert"></div>
                 <div class="stripe-logo">
-                    <a href="https://stripe.com" target="_blank" rel="nofollow"><img src="'.$this->config->urls->siteModules . $this->name . '/img/powered_by_stripe.svg"></a>
+                    <a href="https://stripe.com" target="_blank" rel="nofollow"><img src="'.$imageUrl.'"></a>
                 </div>
             </div>';
 
-        return array( $formIntent, $intent->id );
 
+        // return Stripe form and intent id as array
+        return array( $formIntent, $intent->id );
+    }
+
+    
+    public function paymentCompleted(){
+        $this->deleteIntentData();
     }
 
     // 
     // save intent info in the session
     //
-    protected function saveIntent($amount = 0, $curreny = "", $intentID = ""){  
-        $this->session->set("stripe-intent-amount",$amount);
-        $this->session->set("stripe-intent-curreny",$curreny);
+    protected function saveIntentData($intentID = ""){  
+        $this->session->set("stripe-intent-amount",$this->getTotalAmount());
+        $this->session->set("stripe-intent-currency",$this->currency);
         $this->session->set("stripe-intent-intent-id", $intentID);
+    }
+    protected function deleteIntentData($intentID = ""){  
+        $this->session->set("stripe-intent-amount","");
+        $this->session->set("stripe-intent-currency","");
+        $this->session->set("stripe-intent-intent-id","");
     }
 
 
@@ -145,17 +172,20 @@ class PaymentStripeIntents extends PaymentModule {
 	}
 
 
+    //
+    // Module admin fields
+    //
 	public static function getModuleConfigInputfields(array $data) {
         
         $inputfields = new InputfieldWrapper();
 
-	    $field = wire('modules')->get('InputfieldText');
-	    $field->name = 'seller';
-	    $field->label = __("Seller name");
-	    $field->notes = __("Company or seller of the goods - this is shown on stripe payment form");
-        if(isset($data['seller'])) $field->value = $data['seller'];
-        $field->columnWidth = 50;
-	    $inputfields->add($field);
+	    // $field = wire('modules')->get('InputfieldText');
+	    // $field->name = 'seller';
+	    // $field->label = __("Seller name");
+	    // $field->notes = __("Company or seller of the goods - this is shown on stripe payment form");
+        // if(isset($data['seller'])) $field->value = $data['seller'];
+        // $field->columnWidth = 50;
+	    // $inputfields->add($field);
 
 	    $field = wire('modules')->get('InputfieldText');
 	    $field->name = 'defaultCurrency';
@@ -195,14 +225,25 @@ class PaymentStripeIntents extends PaymentModule {
 	    $field = wire('modules')->get('InputfieldText');
 	    $field->name = 'imageUrl';
 	    $field->label = __("Url to logo");
-        $field->notes = __("Company logo or other image to show in Stripe payment form. Relative url from root, like /site/templates/images/logo.gif");
+        $field->notes = __("Company logo or other image to show in Stripe payment form. Default: Stripe white outline logo");
         $field->columnWidth = 50;
 	    if(isset($data['imageUrl'])) $field->value = $data['imageUrl'];
 	    $inputfields->add($field);
 
 		$field = wire('modules')->get('InputfieldCheckbox');
+	    $field->name = 'ajax';
+	    $field->label = __("Send form via ajax");
+        $field->notes = __("On complete transaction send AJAX request to form url with transaction data.");
+        $field->columnWidth = 50;
+	    if(isset($data['ajax'])) {
+			$field->value = $data['ajax'];
+			$field->attr('checked', $data['ajax'] === 1 ? 'checked' : '' );
+		}
+        $inputfields->add($field);
+
+        $field = wire('modules')->get('InputfieldCheckbox');
 	    $field->name = 'captureCheckbox';
-	    $field->label = __("Capture payment or defer - check to defer");
+	    $field->label = __("Capture payment or defer - check to defer payment capture");
         $field->notes = __("If unchecked (default) capture payment (payment taken immediately), if checked then defer payment (will have to be captured on Stripe account or via API)");
         $field->columnWidth = 50;
 	    if(isset($data['captureCheckbox'])) {

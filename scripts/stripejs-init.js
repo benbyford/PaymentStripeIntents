@@ -9,7 +9,9 @@
     var cardButton = document.getElementById('card-button');
     var form = document.getElementById('stripe-payment-form');
     
-    var handleWithAjax = form.dataset.ajax;
+    var handleWithAjax = Number(form.dataset.ajax);
+    console.log(handleWithAjax);
+    
 
     var clientSecret = cardButton.dataset.secret;
     var publicKey = cardButton.dataset.public;
@@ -145,6 +147,8 @@
 
                     // unload stripe payment
                     cardElement.unmount();
+                    cardButton.remove();
+
                 }
             }
         });
@@ -168,54 +172,53 @@
     // AJAX helper
     //
     
-    // only init if needed
-    if(handleWithAjax){
-        function sendAjax(url, type, data){
+    function sendAjax(url, type, data){
+        console.log(data)
             
-            var xhr = new XMLHttpRequest();
+        var xhr = new XMLHttpRequest();
 
-            // Setup our listener to process request state changes
-            xhr.onreadystatechange = function () {
+        // Setup our listener to process request state changes
+        xhr.onreadystatechange = function () {
 
-                // Only run if the request is complete
-                if (xhr.readyState !== 4) return;
+            // Only run if the request is complete
+            if (xhr.readyState !== 4) return;
 
-                // Process our return data
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    // This will run when the request is successful
-                    // It checks to make sure the status code is in the 200 range
-                    console.log("AJAX successful");
+            // Process our return data
+            if (xhr.status >= 200 && xhr.status < 300) {
+                // This will run when the request is successful
+                // It checks to make sure the status code is in the 200 range
+                console.log("AJAX successful");
+                alert('success');
 
-                    dispatchstripeCallBack(xhr.response, "error");
+                dispatchStripeCallBack(xhr.response, "success");
 
-                } else {
-                    
-                    // This will run when it's not
-                    // error code
-                    console.log("AJAX error");
-            
-                    // dispatch to eventlistener
-                    dispatchstripeCallBack(xhr.response, "error");
-                }
-            };
+            } else {
+                
+                // This will run when it's not
+                // error code
+                console.log("AJAX error");
+                alert('error');
+        
+                // dispatch to eventlistener
+                dispatchStripeCallBack(xhr.response, "error");
+            }
+        };
 
-            // Create and send a request
-            xhr.open(type, url);
-            xhr.send(data);
-        }
-
-        // custom event doc 
-        // https://developer.mozilla.org/en-US/docs/Web/Guide/Events/Creating_and_triggering_events
-        var customAJAXEvent = document.createEvent("Event");
-        customAJAXEvent.initEvent("stripeCallBack",false,false);
-
-        function dispatchstripeCallBack(data, status){
-
-            customAJAXEvent.response = data;
-            customAJAXEvent.status = status;
-
-            document.dispatchEvent(customAJAXEvent);
-        }
+        // Create and send a request
+        xhr.open(type, url);
+        xhr.send(data);
     }
 
+    // custom event doc 
+    // https://developer.mozilla.org/en-US/docs/Web/Guide/Events/Creating_and_triggering_events
+    var customAJAXEvent = document.createEvent("Event");
+    customAJAXEvent.initEvent("stripeCallBack",false,false);
+
+    function dispatchStripeCallBack(data, status){
+
+        customAJAXEvent.response = data;
+        customAJAXEvent.status = status;
+
+        document.dispatchEvent(customAJAXEvent);
+    }
 })();
