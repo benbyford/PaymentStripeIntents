@@ -5,166 +5,294 @@
 
 
     // document els
-    var cardholderName = document.getElementById('cardholder-name');
     var cardButton = document.getElementById('card-button');
     var form = document.getElementById('stripe-payment-form');
+    var crossBrowserPaymentButton = document.getElementById('cross-browser-button');
+
     
-    var handleWithAjax = Number(form.dataset.ajax);
-    console.log(handleWithAjax);
-    
+    var handleWithAjax,
+        clientSecret,
+        publicKey,
+        stripe,
+        elements,
+        currency = "USD",
+        amount = 0,
+        description = "Stripe payment",
+        country = "US";
 
-    var clientSecret = cardButton.dataset.secret;
-    var publicKey = cardButton.dataset.public;
 
-    // init Stripe
-    var stripe = Stripe(publicKey);
-    var elements = stripe.elements();
-
-    // Stripe elements
-    var elementsStyle = {};
-    if(window.hasOwnProperty( "style" )){
-        elementsStyle = style;
+    if(form) { 
+        handleWithAjax = Number(form.dataset.ajax); 
+        country = form.dataset.country;
+        description = form.dataset.description;
+        amount = Number(form.dataset.amount);
+        currency = form.dataset.currency;
     }
 
-    var cardElement = elements.create('card', {
-        iconStyle: 'solid',
-        // add style from module settings page
-        style: elementsStyle
-    });
-    // apply form to the page
-    cardElement.mount('#card-element');
+    if(cardButton){
+        // 
+        // bulk of the app
+        // 
 
-    // syntax for iban payments
-    // var cardElement = elements.create('iban', {supportedCountries:['SEPA']});
+        // get intent information from form
+        clientSecret = cardButton.dataset.secret;
+        publicKey = cardButton.dataset.public;
+        
+        // init Stripe
+        stripe = Stripe(publicKey);
+        elements = stripe.elements();
 
-
-
-    // 
-    // add cross browser payments button
-    // https://stripe.com/docs/stripe-js/elements/payment-request-button
-    // https://stripe.com/docs/stripe-js/reference#the-payment-request-object
-
-    //
-    // var paymentRequest = stripe.paymentRequest({
-    //     country: 'US',
-    //     currency: 'gbp',
-    //     total: {
-    //     label: 'Demo total',
-    //     amount: 1000,
-    //     },
-    //     requestPayerName: true,
-    //     requestPayerEmail: true,
-    // });
-
-    // // Stripe elements payment request button + styling
-    // var prButton = elements.create('paymentRequestButton', {
-    //     paymentRequest: paymentRequest,
-    //     style: {
-    //         paymentRequestButton: {
-    //         height: '56px', // default: '40px', the width is always '100%'
-    //         },
-    //     },
-    // });
-
-    // Check the availability of the Payment Request API first.
-    // paymentRequest.canMakePayment().then(function(result) {
-    //     if (result) {
-    //         prButton.mount('#payment-request-button');
-    //     } else {
-    //         crossBrowserPaymentButton = document.getElementById('#payment-request-button');
-    //         if(crossBrowserPaymentButton) crossBrowserPaymentButton.style.display = 'none';
-    //     }
-    // });
-
-
-    // retrieve payment intent
-    // stripe.retrievePaymentIntent(clientSecret).then(function(result) {
-    //     console.log(result);
-    // });
-    
-    
-    // listen for errors and display
-    cardElement.addEventListener('change', function(event) {
-        var displayError = document.getElementById('card-errors');
-        if (event.error) {
-          displayError.textContent = event.error.message;
-        } else {
-          displayError.textContent = '';
+        // Stripe elements
+        var elementsStyle = {};
+        if(window.hasOwnProperty( "style" )){
+            elementsStyle = style;
         }
-    });
 
+        var cardElement = elements.create('card', {
+            iconStyle: 'solid',
+            // add style from module settings page
+            style: elementsStyle
+        });
+        
+        // mount form on page
+        cardElement.mount('#card-element');
 
-    cardButton.addEventListener('click', function(ev) {
+        // listen for errors and display
+        cardElement.addEventListener('change', function(event) {
 
-        stripe.handleCardPayment(clientSecret, cardElement, {
-            payment_method_data: {
-                billing_details: {
-                    name: cardholderName.value
-                }
-            }
-        }).then(function(result) {
-
-            if (result.error) {
+            // only show errors if the form hasn't been submitted
+            if(submitted == false){
                 
-                // Error with payment
-                console.log("Error with payment");
+                var displayError = document.getElementById('card-errors');
+                if (event.error) {
 
-                // TODO: handle error
+                    // disbale submit on error
+                    cardButton.setAttribute("disabled","true");
+                    cardButton.classList.add("disabled");
 
-            } else {
-                if(result.paymentIntent.status === 'succeeded' || result.paymentIntent.status === "requires_capture"){
-                    
-                    // Payment success
-                    console.log("Payment successful OR waiting for manual capture");
+                    // display error
+                    displayError.textContent = event.error.message;
 
-                    // handle response with AJAX
-                    if(handleWithAjax){
-                        
-                        // intent data
-                        var data = { 
-                            currency: result.paymentIntent.currency,
-                            description: result.paymentIntent.description,
-                            id: result.paymentIntent.id,
-                            created: result.paymentIntent.created,
-                            amount: result.paymentIntent.amount,
-                            status: result.paymentIntent.status
-                        };
-                        var url = form.getAttribute("action");
-                        
-                        // send request
-                        sendAjax(url, "POST", data);
-                        
+                } else {
 
-                    }else{
-                        // handle default form submission to the action url
+                    // enable button
+                    cardButton.removeAttribute("disabled");
+                    cardButton.classList.remove("disabled");
 
-                        // Send the token to your server.
-                        stripeTokenHandler(result.paymentIntent.id);
-                        
-                        // Submit the form to server
-                        form.submit();
-                    }
-
-                    // unload stripe payment
-                    cardElement.unmount();
-                    cardButton.remove();
-
+                    // remove error text
+                    displayError.textContent = '';
                 }
             }
         });
 
-        // prevent browser default form submit
-        ev.preventDefault();
-    });
 
-    function stripeTokenHandler(token) {
+        var submitted = false;
+        cardButton.addEventListener('click', function(ev) {
+            
+            // get email fo Stripe receipt
+            var customerEmailInput = document.getElementById('cardholder-email');
+            var customerPhoneInput = document.getElementById('cardholder-phone');
+            var cardholderNameInput = document.getElementById('cardholder-name');
+            
+            var customerEmail, customerPhone, cardholderName;
+        
+            // get values from form inputs
+            if(customerEmailInput != null) customerEmail = customerEmailInput.value;
+            if(customerPhoneInput != null) customerPhone = customerPhoneInput.value;
+            if(cardholderNameInput != null) cardholderName = cardholderNameInput.value;
+
+            
+            // handle payment submission            
+            stripe.handleCardPayment(clientSecret, cardElement, {
+                payment_method_data: {
+                    billing_details: {
+                        name: cardholderName,
+                        email: customerEmail,
+                        phone: customerPhone
+                    }
+                },
+                receipt_email: customerEmail
+            
+            }).then(function(result) {
+
+                if (result.error) {
+                    
+                    // Error with payment
+                    console.log("Error with payment");
+
+                    // send error to event listener
+                    dispatchStripeCallBack(result, "error");
+
+                } else {
+                    // no error payment status is new state
+                    // we currently only care about succeeded or requires capture states
+                    if(result.paymentIntent.status === 'succeeded' || result.paymentIntent.status === "requires_capture"){
+                        
+                        // Payment success
+                        console.log("Payment successful OR waiting for manual capture");
+
+                        // handle response with AJAX or form submit
+                        handleSuccess(result);
+                        
+                        // unload stripe payment
+                        cardElement.unmount();
+                        cardButton.remove();
+                    }
+                }
+            });
+
+            form.classList.add('submitted');
+
+            // disable form button
+            cardButton.classList.add('submitted');
+            cardButton.classList.add('disabled');
+            cardButton.setAttribute("disabled","true");
+            
+            submitted = true;
+
+            // prevent browser default form submit
+            ev.preventDefault();
+        });
+
+
+        // 
+        // add cross browser payments button
+        // https://stripe.com/docs/stripe-js/elements/payment-request-button
+        // https://stripe.com/docs/stripe-js/reference#the-payment-request-object
+
+        var paymentRequest = stripe.paymentRequest({
+            country: country,
+            currency: currency,
+            total: {
+                label: description,
+                amount: amount, // this is simply a label of the mount that will be shown on device, the actual amount is set in the paymentsIntent
+            },
+            requestPayerName: true,
+            requestPayerEmail: true,
+        });
+
+        // // Stripe elements payment request button + styling
+        var prButton = elements.create('paymentRequestButton', {
+            paymentRequest: paymentRequest,
+            style: {
+                paymentRequestButton: {
+                height: '54px', // default: '40px', the width is always '100%'
+                },
+            },
+        });
+
+        // Check the availability of the Payment Request API first.
+        paymentRequest.canMakePayment().then(function(result) {
+            if (result) {
+                
+                // payment method available
+                prButton.mount('#payment-request-button');
+
+            }else{
+                // no browser payment available
+                if(crossBrowserPaymentButton) crossBrowserPaymentButton.style.display = 'none';
+            }
+        });
+
+        paymentRequest.on('paymentmethod', function(ev) {
+            stripe.confirmPaymentIntent(clientSecret, {
+                payment_method: ev.paymentMethod.id,
+                
+            }).then(function(confirmResult) {
+
+                if (confirmResult.error) {
+                    // Report to the browser that the payment failed, prompting it to
+                    // re-show the payment interface, or show an error message and close
+                    // the payment interface.
+                    ev.complete('fail');
+                    
+                    // show error message to user
+                    form.innerText = "Error with payment";
+
+                } else {
+
+                    // Report to the browser that the confirmation was successful, prompting
+                    // it to close the browser payment method collection interface.
+                    ev.complete('success');
+
+                    // Let Stripe.js handle the rest of the payment flow.
+                    stripe.handleCardPayment(clientSecret).then(function(result) {
+                        if (result.error) {
+                            // The payment failed -- ask your customer for a new payment method.
+                            form.innerText = "Payment error";
+
+                        } else {
+                            
+                            // The payment has succeeded.
+                            handleSuccess(result);
+
+                            // unload stripe payment
+                            cardElement.unmount();
+                            cardButton.remove();
+                            prButton.unmount();
+
+                        }
+                    });
+                }
+            });
+          });
+
+
+        // retrieve payment intent
+        // stripe.retrievePaymentIntent(clientSecret).then(function(result) {
+        //     console.log(result);
+        // });
+    }
+
+
+    // 
+    // submit successful result to the server
+    //
+    function handleSuccess(result){
+        
+        // submit via ajax
+        if(handleWithAjax){
+                        
+            // intent data
+            var data = "ajax=true&stripeToken="+result.paymentIntent.id+"&stripeStatus="+result.paymentIntent.status;
+            var url = form.getAttribute("action");
+
+            // 
+            // send request
+            //
+            
+            sendAjax(url, "POST", data);
+            
+
+        }else{
+            // handle default form submission to the action url
+
+            // add token to new input on form before submission
+            stripeTokenHandler(result.paymentIntent.id, result.paymentIntent.status);
+
+            // 
+            // Submit the form to server
+            // 
+
+            form.submit();
+        }
+    }
+
+    // add tokens to page before submission
+    function stripeTokenHandler(token, status) {
 
         // Insert the token ID into the form so it gets submitted to the server
-        var hiddenInput = document.createElement('input');
-        hiddenInput.setAttribute('type', 'hidden');
-        hiddenInput.setAttribute('name', 'stripeToken');
-        hiddenInput.setAttribute('value', token);
-        form.appendChild(hiddenInput);
+        var hiddenInputId = document.createElement('input');
+        hiddenInputId.setAttribute('type', 'hidden');
+        hiddenInputId.setAttribute('name', 'stripeToken');
+        hiddenInputId.setAttribute('value', token);
+        form.appendChild(hiddenInputId);
+        
+        var hiddenInputStatus = document.createElement('input');
+        hiddenInputStatus.setAttribute('type', 'hidden');
+        hiddenInputStatus.setAttribute('name', 'stripeStatus');
+        hiddenInputStatus.setAttribute('value', status);
+        form.appendChild(hiddenInputStatus);
     }
 
 
@@ -173,7 +301,6 @@
     //
     
     function sendAjax(url, type, data){
-        console.log(data)
             
         var xhr = new XMLHttpRequest();
 
@@ -188,7 +315,6 @@
                 // This will run when the request is successful
                 // It checks to make sure the status code is in the 200 range
                 console.log("AJAX successful");
-                alert('success');
 
                 dispatchStripeCallBack(xhr.response, "success");
 
@@ -197,15 +323,19 @@
                 // This will run when it's not
                 // error code
                 console.log("AJAX error");
-                alert('error');
         
                 // dispatch to eventlistener
                 dispatchStripeCallBack(xhr.response, "error");
             }
         };
 
+        console.log(data);
+        
         // Create and send a request
         xhr.open(type, url);
+        // Send the proper header information along with the request
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+
         xhr.send(data);
     }
 

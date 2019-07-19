@@ -1,12 +1,42 @@
-#stripe-intents-form {
-    background-color: #eee;
-    padding: 1em;
+/*
+* Author: BenByford
+*/
+
+/* 
+* html 
+* animation
+* Stripe form
+* General classes
+*/
+
+body,html{
+    margin: 0;
+    padding: 0;
 }
 
+@keyframes throb{
+    0%{
+        opacity: 1;
+    }
+    50%{
+        opacity: 0.5;
+    }
+    100%{
+        opacity: 1;
+    }
+}
+
+/* Stripe form*/
+form#stripe-payment-form.submitted{
+    animation: throb 1.5s ease-in-out infinite;
+}
+#stripe-intents-form {
+    border: #ddd solid 1px;
+    border-radius: 3px;
+    padding: 1em;
+}
 #stripe-intents-form * {
-    font-family: Roboto, Open Sans, Segoe UI, sans-serif;
-    font-size: 16px;
-    font-weight: 500;
+    font-family: Roboto, Open Sans, arial, verdana, sans-serif;
 }
 
 #stripe-intents-form fieldset {
@@ -24,17 +54,20 @@
     display: flex;
     -ms-flex-align: center;
     align-items: center;
-    margin-left: 15px;
+    padding-bottom: 1em;
+    margin-bottom: 0.5em;
+    border-bottom: 1px solid rgba( 0,0,0,0.1);
 }
 
-#stripe-intents-form .row + .row {
-    border-top: 1px solid #819efc;
+#stripe-intents-form .field {
+    width: 100%;
 }
 
 #stripe-intents-form label {
-    width: 15%;
     min-width: 70px;
     padding: 11px 0;
+    margin-top: 1em;
+    display: block;
     color: #103749;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -49,11 +82,15 @@
     outline: none;
     border-style: none;
 }
+#stripe-intents-form button.disabled,
+#stripe-intents-form button.submitted{
+    cursor: not-allowed;
+}
 
 #stripe-intents-form input:-webkit-autofill {
     -webkit-text-fill-color: #fce883;
-    transition: background-color 100000000s;
     -webkit-animation: 1ms void-animation-out;
+    transition: background-color 100000000s;
 }
 
 #stripe-intents-form .StripeElement--webkit-autofill {
@@ -67,9 +104,7 @@
 
 #stripe-intents-form input {
     width: 100%;
-    padding: 11px 15px 11px 0;
-    color: #0d78aa;
-    background-color: transparent;
+    color: #106366;
     -webkit-animation: 1ms void-animation-out;
 }
 #stripe-intents-form .InputElement.is-complete{
@@ -77,76 +112,70 @@
 }
 
 #stripe-intents-form input::-webkit-input-placeholder {
-color: #87bbfd;
+    color: #87bbfd;
 }
 
 #stripe-intents-form input::-moz-placeholder {
-color: #87bbfd;
+    color: #87bbfd;
 }
 
 #stripe-intents-form input:-ms-input-placeholder {
-color: #87bbfd;
+    color: #87bbfd;
 }
 
 #stripe-intents-form button {
     display: block;
     width: 100%;
-    max-width: 300px;
     height: 40px;
     margin: 1em 0 0;
-    background-color: #276988;
-    box-shadow: 0 6px 9px rgba(50, 50, 93, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08), 0 1px 0 #103749;
+    box-shadow: 0 6px 9px rgba(0, 0, 0, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08), 0 1px 0 #000000;
     border-radius: 4px;
     color: #fff;
     font-weight: 600;
     cursor: pointer;
-
     transition: all 0.05s ease-out;
 }
 #stripe-intents-form button:hover {
-    background-color: #206f94;
-    box-shadow: 0 6px 10px rgba(50, 50, 93, 0.06), 0 2px 10px rgba(0, 0, 0, 0.08), 0 1px 0 #103749;
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.06), 0 2px 10px rgba(0, 0, 0, 0.08), 0 2px 0 #000000;
     transform: translateY(-1px);
 }
 #stripe-intents-form button:active {
-    background-color: #2d8ab6;
-    box-shadow: 0 6px 9px rgba(50, 50, 93, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 #103749;
+    box-shadow: 0 6px 9px rgba(0, 0, 0, 0.06), 0 2px 5px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 #000000;
     transform: translateY(1px);
-
     transition: all 0s ease-out;
 }
 
 #stripe-intents-form .error svg .base {
-fill: #fff;
+    fill: #fff;
 }
 
 #stripe-intents-form .error svg .glyph {
-fill: #6772e5;
+    fill: #6772e5;
 }
 
 #stripe-intents-form .error .message {
-color: #fff;
+    color: #fff;
 }
 
 #stripe-intents-form .success .icon .border {
-stroke: #87bbfd;
+    stroke: #87bbfd;
 }
 
 #stripe-intents-form .success .icon .checkmark {
-stroke: #fff;
+    stroke: #fff;
 }
 
 #stripe-intents-form .success .title {
-color: #fff;
+    color: #fff;
 }
 
 #stripe-intents-form .success .message {
-color: #9cdbff;
+    color: #9cdbff;
 }
 
 #stripe-intents-form .success .reset path {
-fill: #fff;
+    fill: #fff;
 }
 
 #stripe-intents-form .stripe-logo{
@@ -154,4 +183,47 @@ fill: #fff;
     clear: both;
     margin-top: 0.5em;
     text-align: right;
+}
+
+#card-errors{
+    margin-top: 1em;
+    color: #E85F6B;
+}
+
+/* general classes */
+.bg-white{
+    background: white;
+}
+.vertical-table{
+    display: table;
+    width: 100%;
+}
+.vertical-table .table-cell{
+    width: 100%;
+    display: table-cell;
+    vertical-align: middle;
+
+    padding: 1em;
+}
+.max-width{
+    max-width: 460px;
+    margin: auto;
+}
+.payment table tr td:first-child{
+    text-align: left
+}
+
+@media all and (min-width: 599px){
+    .half{
+        width: 50%;
+        vertical-align: top;
+        display: inline-block;
+        min-height: 100vh;
+    }
+    .vertical-table{
+        height: 100%;
+    }
+    .flex{
+        display: flex;
+    }
 }

@@ -1,4 +1,7 @@
 <?php
+/*
+* @author: BenByford 
+*/
 
 require_once(__DIR__ . DIRECTORY_SEPARATOR . 'init.php');
 
@@ -8,12 +11,16 @@ class PaymentStripeIntents extends PaymentModule {
 		return array(
 			'title' => 'PaymentStripeIntents',
 			'version' => 001,
-			'summary' => 'PaymentStripeIntents',
+            'summary' => 'Stripe Intents implementation that allows you to take payments from your site given Price Description, and Stripe account',
+			'href'      => 'https://github.com/benbyford/PaymentStripeIntents',
 			'singular' => true,
 			'requires' => 'PaymentModule',
 		);
     }
+
     protected $name = "PaymentStripeIntents";
+    protected $submitButton = "Submit Payment";
+
 
 	public function init() {
 		$this->currency = $this->defaultCurrency;
@@ -21,8 +28,10 @@ class PaymentStripeIntents extends PaymentModule {
 
   	public function getTitle() {
     	return $this->_("Credit Card (StripeIntents)");
+    }
+    public function setSubmitButton($text) {
+    	$this->submitButton = $text;
   	}
-
 
     protected function createIntent($amount, $currency, $description = ""){
 
@@ -35,16 +44,16 @@ class PaymentStripeIntents extends PaymentModule {
             $capturePayment = "manual";
         }
 
+        $email = $this->customer->email != null ? $this->customer->email : null;
+
         $response = \Stripe\PaymentIntent::create([
             "amount" => $amount,
             "currency" => $currency,
             "payment_method_types" => ["card"],
             "capture_method" => $capturePayment,
-            "description" => $description
-            // "statement_descriptor" => $descriptor
-            // "receipt_email" => this might be known yet
-            // "customer" => $customerID
-            // "save_payment_method" => true
+            "description" => $description,
+            "receipt_email" => $email 
+            // "customer" => $customecurrencyrID
         ]);
 
         return $response;
@@ -56,7 +65,7 @@ class PaymentStripeIntents extends PaymentModule {
         $amount = $this->getTotalAmount();
         $currency = $this->currency;
         $ajax = 0;
-        $imageUrl = $this->config->urls->siteModules . $this->name . '/img/powered_by_stripe.svg';
+        $imageUrl = $this->config->urls->siteModules . $this->name . '/img/OutlineDark/powered_by_stripe.svg';
         
         // set return address
         $returnUrl = $this->page->httpUrl; //  default to current page address if none set in request or admin settings
@@ -66,14 +75,20 @@ class PaymentStripeIntents extends PaymentModule {
 
         // overwrite defaults if set
         if( $custom_currency != "" ) $currency = $custom_currency;
+        $currency = strtolower($currency); // must be lower case for Stripe paymentRequest
         if( $custom_amount != 0 ) $amount = $custom_amount;
         if( (int)$this->ajax ){ $ajax = (int)$this->ajax; }
         if( $this->returnUrl != "" ){ $returnUrl = $this->returnUrl; }
         if( $custom_returnUrl != "" ){ $returnUrl = $custom_returnUrl; }
+        if( $this->processUrl != "" ){ $returnUrl = $this->processUrl; }
         if( $this->imageUrl != "") { $imageUrl = $this->imageUrl; }
 
+        // get Stripe amount country code
+        $country = $this->countryCode;
 
+        // 
         // setup payment Intent
+        //
         $intent = $this->createIntent($amount, $currency, $description);
         
         // throw error if no stripe intent id present
@@ -84,23 +99,34 @@ class PaymentStripeIntents extends PaymentModule {
         
 
         $formIntent = '<div id="stripe-intents-form">
-                
-                <!-- Stripe cross browser payments button -->
-                <div id="payment-request-button"></div>
-                <form action="'. $returnUrl .'" method="post" data-ajax="'. $ajax .'" id="stripe-payment-form">
+                <form action="'. $returnUrl .'" method="post" data-ajax="'. $ajax .'" data-amount="'. $amount .'" data-description="'. $description .'" data-currency="'. $currency .'" data-ajax="'. $ajax .'" data-country="'. $country .'" id="stripe-payment-form">
                     
                     <!-- Stripe elements form -->
-                    <label for="cardholder-name">Cardholder Name</label>
-                    <input id="cardholder-name" name="name" type="text" required value="'. $customerName .'">
-                    
-                    <label for="cardholder-name">Cardholder Email</label>
-                    <input id="cardholder-email" name="email" type="text" required value="'. $this->customer->email .'">
-
-                    <label for="card-element">Credit or debit card</label>
-                    <div id="card-element"></div>
-
-                    <button id="card-button" data-public="'. $this->publicKey .'" data-secret="' . $intent->client_secret .'">Submit Payment</button>
+                    <div class="row">
+                        <div class="field">
+                            <label for="cardholder-name">Cardholder Name</label>
+                            <input id="cardholder-name" name="name" type="text" required value="'. $customerName .'">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="cardholder-name">Cardholder Email</label>
+                            <input id="cardholder-email" name="email" type="text" required value="'. $this->customer->email .'">
+                        </div>
+                    </div>     
+                    <div class="card-details">
+                        <label for="card-element">Credit or debit card</label>
+                        <div id="card-element"></div>
+                        <button id="card-button" data-public="'. $this->publicKey .'" data-secret="' . $intent->client_secret .'">'.$this->submitButton.'</button>
+                    </div>
                 </form>
+
+                <!-- Stripe cross browser payments button -->
+                <div id="cross-browser-button">
+                    <p class="align_center">or</p>
+                    <div id="payment-request-button"></div>
+                </div>
+
                 <div id="card-errors" role="alert"></div>
                 <div class="stripe-logo">
                     <a href="https://stripe.com" target="_blank" rel="nofollow"><img src="'.$imageUrl.'"></a>
@@ -136,19 +162,20 @@ class PaymentStripeIntents extends PaymentModule {
     // intent utilities
     //
     public function cancelIntent($intentID){
-        $intent = \Stripe\PaymentIntent::retrieve($intentID);
+        $intent = $this->retrieveIntent($intentId);
         $intent->cancel();
     }
 
-    public function retrieveIntent($intentID){
-        $intent = \Stripe\PaymentIntent::retrieve($intentID);
+    protected function retrieveIntent($intentID){
+        return \Stripe\PaymentIntent::retrieve($intentID);
     }
 
     public function capturePaymentFromIntent($intentId){
-        // \Stripe\Stripe::setApiKey("sk_test_yKOOsZQrqwRDTEhy40frFtbF");
+        \Stripe\Stripe::setApiKey($this->secretKey);
         
-        $intent = retrieveIntent($intentId);
+        $intent = $this->retrieveIntent($intentId);
         $intent->capture();
+        return $intent;
     }
 
     //
@@ -168,7 +195,7 @@ class PaymentStripeIntents extends PaymentModule {
 
 	// render Stripe form
 	public function render() {
-
+        return "nothing here yet";
 	}
 
 
@@ -187,24 +214,7 @@ class PaymentStripeIntents extends PaymentModule {
         // $field->columnWidth = 50;
 	    // $inputfields->add($field);
 
-	    $field = wire('modules')->get('InputfieldText');
-	    $field->name = 'defaultCurrency';
-	    $field->label = __("Default currency");
-        $field->notes = __("Use this currency by default (always possible to overwrite when using this module from API) Find currency codes listed [here](https://www.iso.org/iso-4217-currency-codes.html)");
-        $field->columnWidth = 50;
-	    if(isset($data['defaultCurrency'])) $field->value = $data['defaultCurrency'];
-	    $inputfields->add($field);
-
         $field = wire('modules')->get('InputfieldText');
-	    $field->name = 'returnUrl';
-	    $field->label = __("Return Url");
-        $field->notes = __("Url the form will POST to on successful payment or card capture e.g. /cart/my-thank-you-page . Defaults to the same page.");
-        $field->columnWidth = 50;
-	    if(isset($data['returnUrl'])) $field->value = $data['returnUrl'];
-        $inputfields->add($field);
-
-
-	    $field = wire('modules')->get('InputfieldText');
 	    $field->name = 'secretKey';
 	    $field->label = __("Secret key");
         $field->notes = __("Your secret key: remember to change this to your live secret key in production. See your keys [here](https://dashboard.stripe.com/account)");
@@ -219,6 +229,32 @@ class PaymentStripeIntents extends PaymentModule {
         $field->notes = __("Your public key: remember to change this to your live public key in production. See your keys [here](https://dashboard.stripe.com/account)");
         $field->columnWidth = 50;
 	    if(isset($data['publicKey'])) $field->value = $data['publicKey'];
+        $inputfields->add($field);
+
+
+	    $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'defaultCurrency';
+	    $field->label = __("Default currency");
+        $field->notes = __("Use this currency by default (always possible to overwrite when using this module from API) Find currency codes listed [here](https://www.iso.org/iso-4217-currency-codes.html)");
+        $field->columnWidth = 50;
+	    if(isset($data['defaultCurrency'])) $field->value = $data['defaultCurrency'];
+        $inputfields->add($field);
+        
+        $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'countryCode';
+	    $field->label = __("Stripe account country code");
+        $field->notes = __("E.g. AE, AT, AU, BE, BR, CA, CH, DE, DK, EE, ES, FI, FR, GB, GR, HK, IE, IN, IT, JP, LT, LU, LV, MX, MY, NL, NO, NZ, PH, PL, PT, RO, SE, SG, SI, SK, US");
+        $field->columnWidth = 50;
+        // default value to US and have in admin to show this is the case
+	    if(isset($data['countryCode'])) $field->value = $data['countryCode'] ? $data['countryCode'] : "US";
+        $inputfields->add($field);
+
+        $field = wire('modules')->get('InputfieldText');
+	    $field->name = 'returnUrl';
+	    $field->label = __("Return Url");
+        $field->notes = __("Url the form will POST to on successful payment or card capture e.g. /cart/my-thank-you-page . Defaults to the same page.");
+        $field->columnWidth = 50;
+	    if(isset($data['returnUrl'])) $field->value = $data['returnUrl'];
         $inputfields->add($field);
 
 
