@@ -1,5 +1,4 @@
 ;(function(){
-
     // ECMAScript5 compatible
     // @author: benbyford
 
@@ -88,6 +87,8 @@
 
         var submitted = false;
         cardButton.addEventListener('click', function(ev) {
+
+
             
             // get email fo Stripe receipt
             var customerEmailInput = document.getElementById('cardholder-email');
@@ -115,6 +116,9 @@
             
             }).then(function(result) {
 
+                // set button to submitted
+                cardButton.classList.add("submitted");
+
                 if (result.error) {
                     
                     // Error with payment
@@ -138,17 +142,18 @@
                         cardElement.unmount();
                         cardButton.remove();
                     }
+
+                    // mark form as submitted
+                    form.classList.add('submitted');
+
+                    // disable form button
+                    cardButton.classList.add('submitted');
+                    cardButton.classList.add('disabled');
+                    cardButton.setAttribute("disabled","true");
+                    
+                    submitted = true;
                 }
             });
-
-            form.classList.add('submitted');
-
-            // disable form button
-            cardButton.classList.add('submitted');
-            cardButton.classList.add('disabled');
-            cardButton.setAttribute("disabled","true");
-            
-            submitted = true;
 
             // prevent browser default form submit
             ev.preventDefault();
@@ -184,8 +189,7 @@
         // Check the availability of the Payment Request API first.
         paymentRequest.canMakePayment().then(function(result) {
             if (result) {
-                
-                // payment method available
+                // payment method available 
                 prButton.mount('#payment-request-button');
 
             }else{
@@ -254,7 +258,10 @@
         if(handleWithAjax){
                         
             // intent data
-            var data = "ajax=true&stripeToken="+result.paymentIntent.id+"&stripeStatus="+result.paymentIntent.status;
+            var name = document.getElementById("cardholder-name").value;
+            var email = document.getElementById('cardholder-email').value;
+
+            var data = "ajax=true&stripeToken="+result.paymentIntent.id+"&stripeStatus="+ result.paymentIntent.status + "&name=" + name + "&email=" + email;
             var url = form.getAttribute("action");
 
             // 
@@ -328,8 +335,6 @@
                 dispatchStripeCallBack(xhr.response, "error");
             }
         };
-
-        console.log(data);
         
         // Create and send a request
         xhr.open(type, url);

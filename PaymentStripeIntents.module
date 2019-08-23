@@ -181,9 +181,15 @@ class PaymentStripeIntents extends PaymentModule {
     //
     // CSS and Scripts for form styling and display
     //
-    public function getScripts(){
+    public function getScripts($v = 0){
+        if($v == 0){
+            $v = "";
+        }else{
+            $v = "?" . $v;
+        }
+
         $scripts = "<script defer>". $this->script_styling ."</script>";
-        $scripts .= "<script defer src='" . $this->config->urls->siteModules . $this->name . '/scripts/stripejs-init.js' . "'></script>";
+        $scripts .= "<script defer src='" . $this->config->urls->siteModules . $this->name . "/scripts/stripejs-init.js" . $v . "'></script>";
         return $scripts;
     }
 
